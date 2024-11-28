@@ -1,5 +1,7 @@
-fastapi
-uvicorn
+flask
 pandas
-scikit-learn
 numpy
+scikit-learn
+tensorflow
+seaborn
+joblib
