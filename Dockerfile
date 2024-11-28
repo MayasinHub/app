@@ -1,5 +1,5 @@
 # Use a lightweight Python image
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -13,8 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code to the container
 COPY . .
 
-# Expose the port your application will run on
+# Expose the port your application will run on (Render uses $PORT)
 EXPOSE 8000
 
-# Set the entry point for your application (adjust if you use Gunicorn, etc.)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Command to run your application
+CMD ["gunicorn", "main:app", "--bind", "0.0.0.0:8000"]
