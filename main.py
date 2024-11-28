@@ -1,30 +1,42 @@
-from fastapi import FastAPI, UploadFile
-from app.preprocessing import preprocess_data
-from app.model import train_model, save_model, load_model
-from app.prediction import predict
+from flask import Flask, request, jsonify
+import pickle
+import pandas as pd
+from preprocessing import preprocess_data
+from model import train_model, retrain_model, predict, check_data_drift
 
-app = FastAPI()
+app = Flask(__name__)
 
-# Load the model on startup
-model = load_model("models/student_dropout_model.pkl")
+# Load the trained model
+MODEL_PATH = './model/student-predictor.pkl'
+with open(MODEL_PATH, 'rb') as f:
+    model = pickle.load(f)
 
-@app.post("/predict")
-async def predict_endpoint(features: dict):
-    # Preprocess features and make a prediction
-    processed_features = preprocess_data(features)
-    prediction = predict(model, processed_features)
-    return {"prediction": prediction}
+@app.route('/predict', methods=['POST'])
+def predict_route():
+    data = request.get_json()
+    df = pd.DataFrame(data)
+    preprocessed_data = preprocess_data(df)
+    predictions = predict(model, preprocessed_data)
+    return jsonify(predictions)
 
-@app.post("/upload")
-async def upload_data(file: UploadFile):
-    # Save the uploaded file
-    with open("data/new_data.csv", "wb") as f:
-        f.write(await file.read())
-    return {"message": "New data uploaded successfully!"}
+@app.route('/retrain', methods=['POST'])
+def retrain_route():
+    new_data = request.get_json()
+    new_df = pd.DataFrame(new_data)
+    global model
+    model = retrain_model(new_df)
+    with open(MODEL_PATH, 'wb') as f:
+        pickle.dump(model, f)
+    return jsonify({"message": "Model retrained successfully!"})
 
-@app.post("/retrain")
-async def retrain_model():
-    # Load new data and retrain the model
-    new_data = preprocess_data("data/new_data.csv")
-    train_model(new_data, "models/student_dropout_model.pkl")
-    return {"message": "Model retrained successfully!"}
+@app.route('/check_drift', methods=['POST'])
+def check_drift_route():
+    old_data = request.files['old_data'].read()
+    new_data = request.files['new_data'].read()
+    old_df = pd.read_csv(old_data)
+    new_df = pd.read_csv(new_data)
+    drift_detected = check_data_drift(old_df, new_df)
+    return jsonify({"drift_detected": drift_detected})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
